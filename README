@@ -1,0 +1,520 @@
+SYNOPSIS
+
+        use API::Github;
+    
+        my $github = API::Github->new(
+            username   => 'USERNAME',
+            token      => 'TOKEN',
+            identifier => 'APPLICATION (yourname@example.com)',
+        );
+    
+        my $user = $github->users('h@x0r');
+        my $results = $user->fetch;
+    
+        # after some introspection
+    
+        $user->update(%data);
+    
+        # or, e.g.
+    
+        my $repo = $github->repos('h@x0r' => 'omnibus');
+        my $results = $repo->pulls;
+
+DESCRIPTION
+
+    This distribution provides an object-oriented thin-client library for
+    interacting with the Github (http://github.com) API. For usage and
+    documentation information visit https://developer.github.com/v3/.
+
+THIN CLIENT
+
+    A thin-client library is advantageous as it has complete coverage and
+    can easily adapt to changes in the API with minimal effort. As a
+    thin-client library, this module does not map specific HTTP requests to
+    specific routines nor does it provide parameter validation, pagination,
+    or other conventions found in typical API client implementations,
+    instead, it simply provides a simple and consistent mechanism for
+    dynamically generating HTTP requests. Additionally, this module has
+    support for debugging and retrying API calls as well as throwing
+    exceptions when 4xx and 5xx server response codes are received.
+
+ Building
+
+        my $user = $github->users('h@x0r');
+        my $repos = $user->repos;
+    
+        $repos->action; # GET /users/h@x0r/repos
+        $repos->action('head'); # HEAD /users/h@x0r/repos
+
+    Building up an HTTP request object is extremely easy, simply call
+    method names which correspond to the API's path segments in the
+    resource you wish to execute a request against. This module uses
+    autoloading and returns a new instance with each method call. The
+    following is the equivalent:
+
+        my $user = $github->resource(users => 'h@x0r');
+        my $repos = $user->resource('repos');
+    
+        # or
+    
+        my $repos = $github->resource('users', 'h@x0r', 'repos');
+    
+        # then
+    
+        $repos->action('put', %args); # PUT /users/h@x0r/repos
+
+    Because each call returns a new API instance configured with a resource
+    locator based on the supplied parameters, reuse and request isolation
+    are made simple, i.e., you will only need to configure the client once
+    in your application.
+
+ Fetching
+
+        my $users = $github->users;
+    
+        $users->fetch(
+            query => {
+                # query-string parameters
+            },
+        );
+    
+        # equivalent to
+    
+        $github->resource('users')->action(
+            get => ( query => { ... } )
+        );
+
+    This example illustrates how you might fetch an API resource.
+
+ Creating
+
+        my $users = $github->users;
+    
+        $users->create(
+            data => {
+                # content-body parameters
+            },
+            query => {
+                # query-string parameters
+            },
+        );
+    
+        # or
+    
+        my $users = $github->users->create(...);
+    
+        # equivalent to
+    
+        $github->resource('users')->action(
+            post => ( query => { ... }, data => { ... } )
+        );
+
+    This example illustrates how you might create a new API resource.
+
+ Updating
+
+        my $users = $github->users;
+        my $user  = $users->resource('h@x0r');
+    
+        $user->update(
+            data => {
+                # content-body parameters
+            },
+            query => {
+                # query-string parameters
+            },
+        );
+    
+        # or
+    
+        my $user = $github->users('h@x0r');
+    
+        $user->update(...);
+    
+        # equivalent to
+    
+        $github->resource('users')->action(
+            put => ( query => { ... }, data => { ... } )
+        );
+
+    This example illustrates how you might update an new API resource.
+
+ Deleting
+
+        my $users = $github->users;
+        my $user  = $users->resource('h@x0r');
+    
+        $user->delete(
+            data => {
+                # content-body parameters
+            },
+            query => {
+                # query-string parameters
+            },
+        );
+    
+        # or
+    
+        my $user = $github->users('h@x0r');
+    
+        $user->delete(...);
+    
+        # equivalent to
+    
+        $github->resource('users')->action(
+            delete => ( query => { ... }, data => { ... } )
+        );
+
+    This example illustrates how you might delete an API resource.
+
+ Transacting
+
+        my $user = $github->resource('users', 'h@x0r');
+    
+        my ($results, $transaction) = $user->fetch(...);
+
+    This example illustrates how you can access the transaction object used
+    to submit the HTTP request.
+
+        $github->identifier;
+        $github->identifier('IDENTIFIER');
+
+    The identifier parameter should be set to a string that identifies your
+    app.
+
+        $github->token;
+        $github->token('TOKEN');
+
+    The token parameter should be set to the API user's personal access
+    token.
+
+        $github->username;
+        $github->username('USERNAME');
+
+    The username parameter should be set to the API user's username.
+
+        $github->debug;
+        $github->debug(1);
+
+    The debug attribute if true prints HTTP requests and responses to
+    standard out.
+
+        $github->fatal;
+        $github->fatal(1);
+
+    The fatal attribute if true promotes 4xx and 5xx server response codes
+    to exceptions, a API::Github::Exception object.
+
+        $github->retries;
+        $github->retries(10);
+
+    The retries attribute determines how many times an HTTP request should
+    be retried if a 4xx or 5xx response is received. This attribute
+    defaults to 1.
+
+        $github->timeout;
+        $github->timeout(5);
+
+    The timeout attribute determines how long an HTTP connection should be
+    kept alive. This attribute defaults to 10.
+
+        $github->url;
+        $github->url(Mojo::URL->new('https://api.github.com'));
+
+    The url attribute set the base/pre-configured URL object that will be
+    used in all HTTP requests. This attribute expects a Mojo::URL object.
+
+        $github->user_agent;
+        $github->user_agent(Mojo::UserAgent->new);
+
+    The user_agent attribute set the pre-configured UserAgent object that
+    will be used in all HTTP requests. This attribute expects a
+    Mojo::UserAgent object.
+
+        my $result = $github->action($verb, %args);
+    
+        # e.g.
+    
+        $github->action('head', %args);   # HEAD request
+        $github->action('optons', %args); # OPTIONS request
+        $github->action('patch', %args);  # PATCH request
+
+    The action method issues a request to the API resource represented by
+    the object. The first parameter will be used as the HTTP request
+    method. The arguments, expected to be a list of key/value pairs, will
+    be included in the request if the key is either data or query.
+
+        my $results = $github->create(%args);
+    
+        # or
+    
+        $github->POST(%args);
+
+    The create method issues a POST request to the API resource represented
+    by the object. The arguments, expected to be a list of key/value pairs,
+    will be included in the request if the key is either data or query.
+
+        my $results = $github->delete(%args);
+    
+        # or
+    
+        $github->DELETE(%args);
+
+    The delete method issues a DELETE request to the API resource
+    represented by the object. The arguments, expected to be a list of
+    key/value pairs, will be included in the request if the key is either
+    data or query.
+
+        my $results = $github->fetch(%args);
+    
+        # or
+    
+        $github->GET(%args);
+
+    The fetch method issues a GET request to the API resource represented
+    by the object. The arguments, expected to be a list of key/value pairs,
+    will be included in the request if the key is either data or query.
+
+        my $results = $github->update(%args);
+    
+        # or
+    
+        $github->PUT(%args);
+
+    The update method issues a PUT request to the API resource represented
+    by the object. The arguments, expected to be a list of key/value pairs,
+    will be included in the request if the key is either data or query.
+
+        $github->emojis;
+
+    The emojis method returns a new instance representative of the API
+    resource requested. This method accepts a list of path segments which
+    will be used in the HTTP request. The following documentation can be
+    used to find more information. https://developer.github.com/v3/emojis/.
+
+        $github->events;
+
+    The events method returns a new instance representative of the API
+    resource requested. This method accepts a list of path segments which
+    will be used in the HTTP request. The following documentation can be
+    used to find more information.
+    https://developer.github.com/v3/activity/events/.
+
+        $github->feeds;
+
+    The feeds method returns a new instance representative of the API
+    resource requested. This method accepts a list of path segments which
+    will be used in the HTTP request. The following documentation can be
+    used to find more information.
+    https://developer.github.com/v3/activity/feeds/.
+
+        $github->gists;
+
+    The gists method returns a new instance representative of the API
+    resource requested. This method accepts a list of path segments which
+    will be used in the HTTP request. The following documentation can be
+    used to find more information. https://developer.github.com/v3/gists/.
+
+        $github->gitignore;
+
+    The gitignore method returns a new instance representative of the API
+    resource requested. This method accepts a list of path segments which
+    will be used in the HTTP request. The following documentation can be
+    used to find more information.
+    https://developer.github.com/v3/gitignore/.
+
+        $github->issues;
+
+    The issues method returns a new instance representative of the API
+    resource requested. This method accepts a list of path segments which
+    will be used in the HTTP request. The following documentation can be
+    used to find more information. https://developer.github.com/v3/issues/.
+
+        $github->licenses;
+
+    The licenses method returns a new instance representative of the API
+    resource requested. This method accepts a list of path segments which
+    will be used in the HTTP request. The following documentation can be
+    used to find more information.
+    https://developer.github.com/v3/licenses/.
+
+        $github->markdown;
+
+    The markdown method returns a new instance representative of the API
+    resource requested. This method accepts a list of path segments which
+    will be used in the HTTP request. The following documentation can be
+    used to find more information.
+    https://developer.github.com/v3/markdown/.
+
+        $github->meta;
+
+    The meta method returns a new instance representative of the API
+    resource requested. This method accepts a list of path segments which
+    will be used in the HTTP request. The following documentation can be
+    used to find more information. https://developer.github.com/v3/meta/.
+
+        $github->notifications;
+
+    The notifications method returns a new instance representative of the
+    API resource requested. This method accepts a list of path segments
+    which will be used in the HTTP request. The following documentation can
+    be used to find more information.
+    https://developer.github.com/v3/activity/notifications/.
+
+        $github->orgs;
+
+    The orgs method returns a new instance representative of the API
+    resource requested. This method accepts a list of path segments which
+    will be used in the HTTP request. The following documentation can be
+    used to find more information. https://developer.github.com/v3/orgs/.
+
+        $github->rate_limit;
+
+    The rate_limit method returns a new instance representative of the API
+    resource requested. This method accepts a list of path segments which
+    will be used in the HTTP request. The following documentation can be
+    used to find more information.
+    https://developer.github.com/v3/rate_limit/.
+
+        $github->repos;
+
+    The repos method returns a new instance representative of the API
+    resource requested. This method accepts a list of path segments which
+    will be used in the HTTP request. The following documentation can be
+    used to find more information. https://developer.github.com/v3/repos/.
+
+        $github->search;
+
+    The search method returns a new instance representative of the API
+    resource requested. This method accepts a list of path segments which
+    will be used in the HTTP request. The following documentation can be
+    used to find more information. https://developer.github.com/v3/search/.
+
+        $github->users;
+
+    The users method returns a new instance representative of the API
+    resource requested. This method accepts a list of path segments which
+    will be used in the HTTP request. The following documentation can be
+    used to find more information. https://developer.github.com/v3/users/.
+
+POD ERRORS
+
+    Hey! The above document had some coding errors, which are explained
+    below:
+
+    Around line 179:
+
+      Unknown directive: =param
+
+    Around line 186:
+
+      Unknown directive: =param
+
+    Around line 193:
+
+      Unknown directive: =param
+
+    Around line 200:
+
+      Unknown directive: =attr
+
+    Around line 207:
+
+      Unknown directive: =attr
+
+    Around line 215:
+
+      Unknown directive: =attr
+
+    Around line 223:
+
+      Unknown directive: =attr
+
+    Around line 231:
+
+      Unknown directive: =attr
+
+    Around line 239:
+
+      Unknown directive: =attr
+
+    Around line 247:
+
+      Unknown directive: =method
+
+    Around line 263:
+
+      Unknown directive: =method
+
+    Around line 275:
+
+      Unknown directive: =method
+
+    Around line 287:
+
+      Unknown directive: =method
+
+    Around line 299:
+
+      Unknown directive: =method
+
+    Around line 311:
+
+      Unknown directive: =resource
+
+    Around line 320:
+
+      Unknown directive: =resource
+
+    Around line 329:
+
+      Unknown directive: =resource
+
+    Around line 338:
+
+      Unknown directive: =resource
+
+    Around line 347:
+
+      Unknown directive: =resource
+
+    Around line 356:
+
+      Unknown directive: =resource
+
+    Around line 365:
+
+      Unknown directive: =resource
+
+    Around line 374:
+
+      Unknown directive: =resource
+
+    Around line 383:
+
+      Unknown directive: =resource
+
+    Around line 392:
+
+      Unknown directive: =resource
+
+    Around line 401:
+
+      Unknown directive: =resource
+
+    Around line 410:
+
+      Unknown directive: =resource
+
+    Around line 419:
+
+      Unknown directive: =resource
+
+    Around line 428:
+
+      Unknown directive: =resource
+
+    Around line 437:
+
+      Unknown directive: =resource
+
